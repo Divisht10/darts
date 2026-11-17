@@ -434,13 +434,18 @@ class TestLocalForecastingModels:
             series1 = self.ts_pass_train
             series2 = self.ts_pass_val
 
-        # creating covariates from series + noise
-        noise1 = tg.gaussian_timeseries(length=len(series1))
-        noise2 = tg.gaussian_timeseries(length=len(series2))
+        # creating covariates from series + noise (noise on the same time index as the series)
+        def make_noise(series):
+            return tg.gaussian_timeseries(
+                start=series.start_time(), length=len(series), freq=series.freq
+            )
+
+        noise1 = make_noise(series1)
+        noise2 = make_noise(series2)
 
         for _ in range(1, series1.n_components):
-            noise1 = noise1.stack(tg.gaussian_timeseries(length=len(series1)))
-            noise2 = noise2.stack(tg.gaussian_timeseries(length=len(series2)))
+            noise1 = noise1.stack(make_noise(series1))
+            noise2 = noise2.stack(make_noise(series2))
 
         exog1 = series1 + noise1
         exog2 = series2 + noise2

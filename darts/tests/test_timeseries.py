@@ -1,5 +1,6 @@
 import logging
 import math
+import operator
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
@@ -1101,6 +1102,53 @@ class TestTimeSeries:
         assert self.series1.diff(n=2, dropna=0) == diff2
         assert self.series1.diff(periods=2, dropna=True) == diff_shift2_no_na
         assert self.series1.diff(n=2, periods=2, dropna=False) == diff2_shift2
+
+    @pytest.mark.parametrize(
+        "op",
+        [
+            operator.add,
+            operator.sub,
+            operator.mul,
+            operator.truediv,
+            operator.pow,
+            operator.lt,
+            operator.le,
+            operator.gt,
+            operator.ge,
+        ],
+    )
+    def test_ops_different_time_index(self, op):
+        series = TimeSeries.from_times_and_values(
+            generate_index("2020-01-01", length=5, freq="D"), np.arange(1.0, 6.0)
+        )
+        msg = "different time indexes"
+
+        # same length and shape, but shifted by one step
+        with pytest.raises(ValueError, match=msg):
+            op(series, series.shift(1))
+        # same length, different frequency
+        with pytest.raises(ValueError, match=msg):
+            op(
+                series,
+                TimeSeries.from_times_and_values(
+                    generate_index("2020-01-01", length=5, freq="2D"),
+                    np.arange(1.0, 6.0),
+                ),
+            )
+        # integer index with a different start
+        series_int = TimeSeries.from_values(np.arange(1.0, 6.0))
+        with pytest.raises(ValueError, match=msg):
+            op(series_int, series_int.shift(1))
+
+        # same time index, or a plain array, still works
+        def to_array(res):
+            # comparison operators return arrays, arithmetic operators return series
+            return res.all_values() if isinstance(res, TimeSeries) else res
+
+        vals = series.all_values()
+        expected = op(vals, vals)
+        np.testing.assert_array_equal(to_array(op(series, series)), expected)
+        np.testing.assert_array_equal(to_array(op(series, vals)), expected)
 
     def test_ops(self):
         seriesA = TimeSeries.from_series(

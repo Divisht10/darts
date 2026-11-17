@@ -5058,6 +5058,14 @@ class TimeSeries:
         """Extract values from another series or array and check for compatible shapes."""
 
         if isinstance(other, TimeSeries):
+            if not self.has_same_time_as(other):
+                raise_log(
+                    ValueError(
+                        "Attempted to perform operation on two TimeSeries with different time indexes. "
+                        "Both series must have the same time index; consider aligning them first, "
+                        "e.g. with `series.slice_intersect(other)`."
+                    ),
+                )
             other_vals = other._values
         elif isinstance(other, np.ndarray):
             other_vals = other
